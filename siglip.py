@@ -65,17 +65,39 @@ class SiglipVisionEmbeddings(nn.Module):
         embeddings = embeddings + self.position_embedding(self.position_ids)
         return embeddings
 
-
-# Need to implement the encoder part
-class SiglipEncoder(nn.Module):
+# Need to work on the encoder layer / build the multihead attention layer
+class SiglipEncoderLayer(nn.Module):
     def __init__(self, config: SiglipVisionConfig):
         super().__init__()
         self.config = config
+        self.embed_dim = config.hidden_size
+        
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.attention_dropout)
+        self.mlp = nn.Sequential(
+            nn.Linear(self.embed_dim, config.intermediate_size),
+            nn.ReLU(),
+            nn.Linear(config.intermediate_size, self.embed_dim),
+        )
+        # self.self_attention = 
+
         pass
 
     def forward(self, x):
         pass
 
+class SiglipEncoder(nn.Module):
+    
+    def __init__(self, config: SiglipVisionConfig):
+        super().__init__()
+        self.config = config
+        self.layers = nn.ModuleList([SiglipEncoderLayer(config) for _ in range(config.num_hidden_layers)])
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
 class SiglipVisionTransformer(nn.Module):
 
