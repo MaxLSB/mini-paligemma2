@@ -4,9 +4,10 @@ from PIL import Image
 from typing import Dict, List, Optional, Tuple, Iterable, Union
 
 
+################################### Constants ###################################
+
 IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]
 IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]
-
 
 ################################### Utility functions ###################################
 
@@ -16,6 +17,7 @@ def add_image_tokens_to_prompt(prefix_prompt, bos_token, image_seq_len, image_to
     #   A <bos> token is added at the beginning, and an additional newline token (\n) is appended.
     #   This newline token is an essential part of the input prompt the model was trained with, so adding it explicitly ensures it's always there.
     #   The tokenized text is also prefixed with a fixed number of <image> tokens.
+    #   Unlike in the PaliGemma paper, the Hugging Face code doesn't tokenize \n separately.
     return f"{image_token * image_seq_len}{bos_token}{prefix_prompt}\n"
 
 
@@ -74,15 +76,14 @@ def process_images(
     return images
 
 
-################################### PaliGemmaProcessing ###################################
+################################### PaliGemma PreProcessing ###################################
 
 
-class PaliGemmaProcessing:
+class PreProcessing:
 
     IMAGE_TOKEN = "<image>"
 
     def __init__(self, tokenizer, num_image_tokens: int, image_size: int):
-        self.tokenizer = tokenizer
         self.num_image_tokens = num_image_tokens
         self.image_size = image_size
 
@@ -96,7 +97,7 @@ class PaliGemmaProcessing:
         ]  # These tokens are used for object segmentation
         tokenizer.add_tokens(EXTRA_TOKENS)
         self.image_token_id = tokenizer.convert_tokens_to_ids(self.IMAGE_TOKEN)
-        # We will add the BOS and EOS tokens ourselves
+        # We will add the BOS and EOS tokens ourself
         tokenizer.add_bos_token = False
         tokenizer.add_eos_token = False
 
@@ -111,7 +112,7 @@ class PaliGemmaProcessing:
     ) -> dict:
         assert (
             len(images) == 1 and len(text) == 1
-        ), f"Received {len(images)} images for {len(text)} prompts."
+        ), f"Received {len(images)} images for {len(text)} prompts."  # We only support one image and one prompt at a time.
 
         # We preprocess the images
         pixel_values = process_images(
@@ -126,6 +127,7 @@ class PaliGemmaProcessing:
         pixel_values = np.stack(pixel_values, axis=0)
         pixel_values = torch.tensor(pixel_values)
 
+        # The image tokens act as placeholders and will be later replaced by the image embeddings.
         input_strings = [
             add_image_tokens_to_prompt(
                 prefix_prompt=prompt,
@@ -137,6 +139,7 @@ class PaliGemmaProcessing:
         ]
 
         # Returns the input_ids and attention_mask as PyTorch tensors
+        # The attention mask is only 1s as we don't use padding
         inputs = self.tokenizer(
             input_strings,
             return_tensors="pt",
@@ -146,4 +149,5 @@ class PaliGemmaProcessing:
 
         return_data = {"pixel_values": pixel_values, **inputs}
 
+        # we return the preprocessed image tensor and the tokenized input with the <image> placeholders, BOS token, prefix prompt and the separator.
         return return_data

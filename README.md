@@ -4,7 +4,7 @@ _(Work in Progress...)_
 
 This repository contains the implementation of a Vision-Language Model (VLM) built from scratch as a personal project. This model is inspired from the PaliGemma Model.
 
-![PaliGemma Architecture.](images/architecture.png)
+![PaliGemma Architecture.](media/architecture.png)
 
 # Architecture
 
@@ -19,7 +19,7 @@ The model is composed of three main components:
 The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img</sub> tokens. The text is converted into N<sub>txt</sub> tokens using the Gemma's Sentence Piece tokenizer and embedded with Gemma's vocabulary embedding layer. The image tokens are then projected with the linear layer. Then the sequence of image tokens and text tokens are concatenated and fed into the Gemma-2B decoder as follows:
 
 <div align="center">
-  <img src="images/prefix-lm-masking.png" alt="PaliGemma Architecture" width="500" />
+  <img src="media/prefix-lm-masking.png" alt="PaliGemma Architecture" width="500" />
 </div>
 
 <br>
