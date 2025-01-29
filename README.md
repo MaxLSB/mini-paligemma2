@@ -2,13 +2,13 @@
 
 _(Work in Progress...)_
 
-This repository contains the implementation of a Vision-Language Model (VLM) built from scratch as a personal project. This model is inspired from the PaliGemma Model.
+This repository contains the implementation of a Vision-Language Model (PaliGemma) built from scratch as a personal project.
 
 ![PaliGemma Architecture.](media/architecture.png)
 
 # Architecture
 
-The model is composed of three main components:
+This VLM is composed of three main components:
 
 - SigLIP, an image encoder which was constrastively pretrained at large scale with sigmoid loss. Achieved SoTA performance, especially for its small size (checkpoints available).
 
@@ -26,6 +26,6 @@ The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img<
 
 In our implementation, the images are always resized to 224x224 pixels, corresponding to 256 tokens which are always placed in the front. The BOS token then marks the start of text tokens and a `\u` is used as a separator token. But this separator is tokenized separatly to avoid it bering merged with with the end of the prefix or the beginning of the suffix. This model uses a full unmasked attention on the input (image + prefix) and the vanilla auto-regressive mask for the output (suffix).
 
-# Training
+# Information
 
 PaliGemma's pretraining is limited to 'text' covering natural language, object detection and instant segmentation. 
