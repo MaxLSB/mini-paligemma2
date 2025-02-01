@@ -1,8 +1,7 @@
 import torch
 import math
 from torch import nn
-from typing import Optional, Tuple, list
-from torch.nn import CrossEntropyLoss
+from typing import Optional, Tuple
 from siglip import SiglipVisionConfig, SiglipVisionModel
 from gemma import GemmaConfig, Gemma
 from projector import MultiModalProjector
@@ -103,8 +102,43 @@ class PaliGemma(nn.Module):
         embedding = embedding.masked_scatter(image_mask, scaled_image_embeds)
         embedding = torch.where(pad_mask, torch.zeros_like(embedding), embedding)
 
-        # Need to work on the KV-cache
-        pass
+        # We create the attention mask
+        dtype, device = inputs_embeds.dtype, inputs_embeds.device
+        q_len = inputs_embeds.shape[1]
+
+        if kv_cache is None or kv_cache.num_items() == 0:
+            # If we are not generating tokens, the query can be the entire sequence.
+            # Only works when we have no padding
+            causal_mask = torch.full(
+                (batch_size, q_len, q_len), fill_value=0, dtype=dtype, device=device
+            )
+        else:
+            # If we are generating tokens, the query must be one token at a time.
+            assert q_len == 1
+            kv_len = kv_cache.num_items() + q_len
+            # We don't need to mask anything as we have a single token in the query.
+            # Only works when we have no padding
+            causal_mask = torch.full(
+                (batch_size, q_len, kv_len), fill_value=0, dtype=dtype, device=device
+            )
+
+        # (batch_size, q_len, kv_len) => (batch_size, num_heads_q, q_len, kv_len)
+        causal_mask = causal_mask.unsqueeze(1)
+
+        if kv_cache is not None and kv_cache.num_items() > 0:
+            # position of the query is just the last position
+            position_ids = attention_mask.cumsum(-1)[:, -1]
+            if position_ids.dim() == 1:
+                position_ids = position_ids.unsqueeze(0)
+        else:
+            # we create a position_ids based on the size of the attention mask
+            position_ids = (
+                (attention_mask.cumsum(-1))
+                .masked_fill_((attention_mask == 0), 1)
+                .to(device)
+            )
+
+        return embedding, causal_mask, position_ids
 
     def forward(
         self,

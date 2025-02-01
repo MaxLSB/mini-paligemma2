@@ -24,8 +24,13 @@ The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img<
 
 <br>
 
-In our implementation, the images are always resized to 224x224 pixels, corresponding to 256 tokens which are always placed in the front. The BOS token then marks the start of text tokens and a `\u` is used as a separator token. But this separator is tokenized separatly to avoid it bering merged with with the end of the prefix or the beginning of the suffix. This model uses a full unmasked attention on the input (image + prefix) and the vanilla auto-regressive mask for the output (suffix).
+In this implementation, the images are always resized to 224x224 pixels, corresponding to 256 tokens which are always placed in the front. The BOS token then marks the start of text tokens and a `\u` is used as a separator token. But this separator is tokenized separatly to avoid it bering merged with with the end of the prefix or the beginning of the suffix. This model uses a full unmasked attention on the input (image + prefix) and the vanilla auto-regressive mask for the output (suffix).
 
-# Information
+# Key Architectural Insights
 
-PaliGemma's pretraining is limited to 'text' covering natural language, object detection and instant segmentation. 
+- The model leverages KV-cache. During inference, since we cache the keys and values of the previous tokens, we only process a single token at a time, so there is nothing to mask out. Obviously, during training, you still have a causal mask.
+- Surprisingly, the model uses a full unmasked attention on the images tokens AND the prefix tokens !!! And an auto-regressive mask only for the output (suffix).
+- RMS Normalization 
+- Group Query Attention
+- Rotary Positional Embeddings
+- Top-p sampling
