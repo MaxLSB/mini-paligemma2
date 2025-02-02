@@ -76,10 +76,10 @@ def process_images(
     return images
 
 
-################################### PaliGemma PreProcessing ###################################
+################################### PaliGemma Processor ###################################
 
 
-class PreProcessing:
+class PaliGemmaProcessor:
 
     IMAGE_TOKEN = "<image>"
 
