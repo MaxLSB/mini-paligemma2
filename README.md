@@ -31,6 +31,6 @@ In this implementation, the images are always resized to 224x224 pixels, corresp
 - The model leverages KV-cache. During inference, since we cache the keys and values of the previous tokens, we only process a single token at a time, so there is nothing to mask out. Obviously, during training, you still have a causal mask.
 - Surprisingly, the model uses a full unmasked attention on the images tokens AND the prefix tokens !!! And an auto-regressive mask only for the output (suffix).
 - RMS Normalization 
-- Group Query Attention
+- Group Query Attention, slightly reduces the quality but increases the speed (as we reduce the quantity of data transfer which is the bottleneck of the attention mechanism) and reduces the memory consumption and therefore reduces the KV-cache size.
 - Rotary Positional Embeddings
 - Top-p sampling

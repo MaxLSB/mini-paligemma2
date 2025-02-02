@@ -68,12 +68,12 @@ class SiglipVisionEmbeddings(nn.Module):
         embeddings = embeddings + self.position_embedding(self.position_ids)
         return embeddings
 
-
-class SiglipAttention(nn.Module):
     """
     Multi-head Full self-attention mechanism.
     """
 
+
+class SiglipAttention(nn.Module):
     def __init__(self, config: SiglipVisionConfig):
         super().__init__()
         self.config = config

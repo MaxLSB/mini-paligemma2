@@ -2,9 +2,9 @@ import torch
 import math
 from torch import nn
 from typing import Optional, Tuple
-from siglip import SiglipVisionConfig, SiglipVisionModel
-from gemma import GemmaConfig, Gemma
-from projector import MultiModalProjector
+from src.models.siglip import SiglipVisionConfig, SiglipVisionModel
+from src.models.gemma import GemmaConfig, Gemma
+from src.models.projector import MultiModalProjector
 
 
 ################################### PaliGemma Model ###################################
