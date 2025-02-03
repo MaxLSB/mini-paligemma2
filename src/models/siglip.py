@@ -1,36 +1,9 @@
 import torch
 import torch.nn as nn
+from models.model_config import SiglipVisionConfig
 
 
 ################################### Siglip Vision Encoder ###################################
-
-
-class SiglipVisionConfig:
-
-    def __init__(
-        self,
-        hidden_size,
-        intermediate_size,
-        num_hidden_layers,
-        num_attention_heads,
-        num_channels,
-        image_size,
-        patch_size,
-        layer_norm_eps,
-        attention_dropout,
-        num_image_tokens,
-    ):
-        super.__init__()
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.num_channels = num_channels
-        self.image_size = image_size
-        self.patch_size = patch_size
-        self.layer_norm_eps = layer_norm_eps
-        self.attention_dropout = attention_dropout
-        self.num_image_tokens = num_image_tokens
 
 
 class SiglipVisionEmbeddings(nn.Module):
@@ -78,6 +51,7 @@ class SiglipAttention(nn.Module):
         super().__init__()
         self.config = config
         self.embed_dim = config.hidden_size
+        self.num_heads = config.num_attention_heads
         self.dropout = config.attention_dropout
         self.head_dim = self.embed_dim // config.num_attention_heads
 
@@ -89,20 +63,20 @@ class SiglipAttention(nn.Module):
     def forward(self, x):
         # [batch_size, num_patches, embed_dim]
         batch_size, num_patches, _ = x.size()
-        # [batch_size, num_patches, embed_dim] => [batch_size, num_attention_heads, num_patches, head_dim]
+        # [batch_size, num_patches, embed_dim] => [batch_size, num_heads, num_patches, head_dim]
         query = (
             self.q(x)
-            .view(batch_size, num_patches, self.num_attention_heads, self.head_dim)
+            .view(batch_size, num_patches, self.num_heads, self.head_dim)
             .transpose(1, 2)
         )
         key = (
             self.k(x)
-            .view(batch_size, num_patches, self.num_attention_heads, self.head_dim)
+            .view(batch_size, num_patches, self.num_heads, self.head_dim)
             .transpose(1, 2)
         )
         values = (
             self.v(x)
-            .view(batch_size, num_patches, self.num_attention_heads, self.head_dim)
+            .view(batch_size, num_patches, self.num_heads, self.head_dim)
             .transpose(1, 2)
         )
         attn_weights = torch.matmul(query, key.transpose(-2, -1)) / self.head_dim**0.5
@@ -114,7 +88,7 @@ class SiglipAttention(nn.Module):
         attn_output = torch.matmul(attn_weights, values)
         attn_output = attn_output.transpose(
             1, 2
-        ).contiguous()  # [batch_size, num_patches, num_attention_heads, head_dim]
+        ).contiguous()  # [batch_size, num_patches, num_heads, head_dim]
         attn_output = attn_output.view(
             batch_size, num_patches, self.embed_dim
         )  # [batch_size, num_patches, embed_dim]

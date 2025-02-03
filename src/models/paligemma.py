@@ -2,44 +2,13 @@ import torch
 import math
 from torch import nn
 from typing import Optional, Tuple
-from src.models.siglip import SiglipVisionConfig, SiglipVisionModel
-from src.models.gemma import GemmaConfig, Gemma
-from src.models.projector import MultiModalProjector
+from models.siglip import SiglipVisionModel
+from models.gemma import Gemma, KVCache
+from models.projector import MultiModalProjector
+from models.model_config import PaliGemmaConfig
 
 
 ################################### PaliGemma Model ###################################
-
-
-class PaliGemmaConfig(SiglipVisionConfig):
-
-    def __init__(
-        self,
-        vision_config=None,
-        text_config=None,
-        ignore_text=-100,
-        image_token_index=256000,
-        vocab_size=257152,
-        projection_dim=2048,
-        hidden_size=2048,
-        pad_token_id=None,
-        **kwargs
-    ):
-        super().__init__(vision_config, text_config, **kwargs)
-        self.ignore_text = ignore_text
-        self.image_token_index = image_token_index
-        self.vocab_size = vocab_size
-        self.projection_dim = projection_dim
-        self.hidden_size = hidden_size
-        self.pad_token_id = pad_token_id
-        self.is_encoder_decoder = False  # Needed to load the HF weights
-
-        self.vision_config = SiglipVisionConfig(**vision_config)
-        self.text_config = GemmaConfig(**text_config, pad_token_id=pad_token_id)
-
-        self.text_config.num_image_tokens = (
-            self.vision_config.image_size // self.vision_config.patch_size
-        ) ** 2
-        self.vision_config.projection_dim = projection_dim
 
 
 class PaliGemma(nn.Module):
@@ -47,10 +16,10 @@ class PaliGemma(nn.Module):
     def __init__(self, config: PaliGemmaConfig):
         super().__init__()
         self.config = config
-        self.vision_model = SiglipVisionModel(config)
+        self.vision_model = SiglipVisionModel(config.vision_config)
         self.projector = MultiModalProjector(config)
         self.vocab_size = config.vocab_size
-        self.language_model = Gemma(config)
+        self.language_model = Gemma(config.text_config)
 
         self.pad_token_id = (
             self.config.pad_token_id if self.config.pad_token_id is not None else -1

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from src.models.paligemma import PaliGemmaConfig
+from models.model_config import PaliGemmaConfig
 
 
 ################################### Projector ###################################

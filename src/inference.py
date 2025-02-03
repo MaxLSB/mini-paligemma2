@@ -1,11 +1,11 @@
-from PIL import Image
 import torch
+from PIL import Image
 
 from processing import PaliGemmaProcessor
-from src.models.paligemma import PaliGemma
-from src.models.gemma import KVCache
-from src.utils import load_hf_model
-from src.config import get_args
+from models.paligemma import PaliGemma
+from models.gemma import KVCache
+from utils import load_hf_model
+from config import get_args
 
 ################################### Useful functions ###################################
 
@@ -103,7 +103,7 @@ def _sample_top_p(probs: torch.Tensor, p: float):
     return next_token
 
 
-################################### Main ###################################
+################################### Inference ###################################
 
 
 def main(
@@ -118,9 +118,9 @@ def main(
 ):
     device = "cuda" if torch.cuda.is_available() and not only_cpu else "cpu"
 
-    print("Device in use: ", device)
+    print("Device in use:", device)
 
-    print(f"Loading model")
+    print(f"Loading the weights from {model_path}")
     model, tokenizer = load_hf_model(model_path, device)
     model = model.to(device).eval()
 

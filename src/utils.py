@@ -1,15 +1,19 @@
-from src.models.paligemma import PaliGemma, PaliGemmaConfig
-from transformers import AutoTokenizer
+import os
 import json
 import glob
-from safetensors import safe_open
 from typing import Tuple
-import os
+from safetensors import safe_open
+from transformers import AutoTokenizer
+from models.paligemma import PaliGemma, PaliGemmaConfig
+
+################################### Load Hugging Face weights ###################################
 
 
 def load_hf_model(model_path: str, device: str) -> Tuple[PaliGemma, AutoTokenizer]:
     # Load tokenizer (we don't code it here)
-    tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="right")
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_path, padding_side="right", local_files_only=True
+    )
     assert tokenizer.padding_side == "right"
 
     # Find all the *.safetensors files
