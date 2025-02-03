@@ -1,4 +1,3 @@
-import torch
 from torch import nn
 from models.model_config import PaliGemmaConfig
 
@@ -11,7 +10,9 @@ class MultiModalProjector(nn.Module):
         super().__init__()
         # The projection dimension is the embedding dimension of the Gemma model
         self.linear = nn.Linear(
-            config.vision_config.hidden_size, config.projection_dim, bias=True
+            config.vision_config.hidden_size,
+            config.vision_config.projection_dim,
+            bias=True,
         )
 
     def forward(self, image_features):

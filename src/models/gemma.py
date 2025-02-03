@@ -4,6 +4,26 @@ from typing import Optional, Tuple, List
 import math
 from models.model_config import GemmaConfig
 
+
+################################### Useful functions ###################################
+
+
+def rotate_half(x):
+    # Build the [-x2, x1, -x4, x3, ...] tensor
+    x1 = x[..., : x.shape[-1] // 2]  # Takes the first half of the last dimension
+    x2 = x[..., x.shape[-1] // 2 :]  # Takes the second half of the last dimension
+    return torch.cat((-x2, x1), dim=-1)
+
+
+# Apply the rotary position embedding to the query and key
+def apply_rotary_pos_emb(query, key, cos, sin, unsqueeze_dim=1):
+    cos = cos.unsqueeze(unsqueeze_dim)  # add the head dimension
+    sin = sin.unsqueeze(unsqueeze_dim)  # add the head dimension
+    query = (query * cos) + (rotate_half(query) * cos)
+    key = (key * sin) + (rotate_half(key) * sin)
+    return query, key
+
+
 ################################### Gemma Model ###################################
 
 
@@ -72,7 +92,7 @@ class MLP(nn.Module):
     def forward(self, x):
         # (batch_size, sequence_length, hidden_size) => (batch_size, sequence_length, intermediate_size)
         gated_activation = self.gate_proj(x)
-        gated_activation = torch.gelu(gated_activation, approximate="tanh")
+        gated_activation = nn.functional.gelu(gated_activation, approximate="tanh")
         upscaled_input = self.up_proj(x)
         transformed = gated_activation * upscaled_input
 
@@ -127,22 +147,6 @@ class RotaryEmbedding(nn.Module):
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
 
-def rotate_half(x):
-    # Build the [-x2, x1, -x4, x3, ...] tensor
-    x1 = x[..., : x.shape[-1] // 2]  # Takes the first half of the last dimension
-    x2 = x[..., x.shape[-1] // 2 :]  # Takes the second half of the last dimension
-    return torch.cat((-x2, x1), dim=-1)
-
-
-# Apply the rotary position embedding to the query and key
-def apply_rotary_pos_emb(query, key, cos, sin, unsqueeze_dim=1):
-    cos = cos.unsqueeze(unsqueeze_dim)  # add the head dimension
-    sin = sin.unsqueeze(unsqueeze_dim)  # add the head dimension
-    query = (query * cos) + (rotate_half(query) * cos)
-    key = (query * sin) + (rotate_half(key) * sin)
-    return query, key
-
-
 class GroupQueryAttention(nn.Module):
 
     def __init__(self, config: GemmaConfig, layer_idx: int):
@@ -171,12 +175,12 @@ class GroupQueryAttention(nn.Module):
             self.hidden_size,
             self.num_key_value_heads * self.head_dim,
             bias=config.attention_bias,
-        )  # [1024, 2 * 128] = [1024, 128]
+        )  # [1024, 1 * 128] = [1024, 128]
         self.v_proj = nn.Linear(
             self.hidden_size,
             self.num_key_value_heads * self.head_dim,
             bias=config.attention_bias,
-        )  # [1024, 2 * 128] = [1024, 128]
+        )  # [1024, 1 * 128] = [1024, 128]
         self.o_proj = nn.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=config.attention_bias
         )
@@ -201,10 +205,10 @@ class GroupQueryAttention(nn.Module):
         self,
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
         kv_cache: Optional[KVCache] = None,
         **kwargs,
-    ):
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         batch_size, seq_len, _ = hidden_states.size()
         # (batch_size, sequence_length, hidden_size) => (batch_size, num_heads, sequence_length, head_dim)
         query = (
@@ -273,8 +277,8 @@ class GemmaLayer(nn.Module):
 
         self.self_attn = GroupQueryAttention(config=config, layer_idx=layer_idx)
         self.mlp = MLP(config=config)
-        self.input_layer_norm = RMSNorm(config.hidden_size, config.rms_norm_eps)
-        self.output_layer_norm = RMSNorm(config.hidden_size, config.rms_norm_eps)
+        self.input_layernorm = RMSNorm(config.hidden_size, config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(config.hidden_size, config.rms_norm_eps)
 
     def forward(
         self,
@@ -289,7 +293,7 @@ class GemmaLayer(nn.Module):
 
         residual = hidden_states
 
-        hidden_states = self.input_layer_norm(hidden_states)
+        hidden_states = self.input_layernorm(hidden_states)
 
         hidden_states, _ = self.self_attn(
             hidden_states=hidden_states,
@@ -299,10 +303,10 @@ class GemmaLayer(nn.Module):
         )
 
         # (batch_size, sequence_length, hidden_size)
-        hidden_states
+        hidden_states = hidden_states + residual
 
         residual = hidden_states
-        hidden_states = self.output_layer_norm(hidden_states)
+        hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
         hidden_states = residual + hidden_states
 
@@ -339,12 +343,10 @@ class GemmaModel(nn.Module):
         inputs_embeds: Optional[torch.FloatTensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple:
-
+        output = inputs_embeds
         # (batch_size, sequence_length, hidden_size)
-        normalizer = self.tensor(
-            self.config.hidden_size**0.5, dtype=inputs_embeds.dtype
-        )
-        output = inputs_embeds * normalizer
+        normalizer = torch.tensor(self.config.hidden_size**0.5, dtype=output.dtype)
+        output = output * normalizer
 
         for layer in self.layers:
             output = layer(
@@ -373,6 +375,7 @@ class Gemma(nn.Module):
     def get_input_embeddings(self):
         return self.model.embed_tokens
 
+    # We reuse the embeddings of the model in the linear layer
     def tie_weights(self):
         self.lm_head.weight = self.model.embed_tokens.weight
 

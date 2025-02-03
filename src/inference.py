@@ -107,14 +107,14 @@ def _sample_top_p(probs: torch.Tensor, p: float):
 
 
 def main(
-    model_path: str = None,
-    prompt: str = None,
-    image_file_path: str = None,
-    max_tokens_to_generate: int = 100,
-    temperature: float = 0.8,
-    top_p: float = 0.9,
-    do_sample: bool = False,
-    only_cpu: bool = False,
+    model_path,
+    prompt,
+    image_file_path,
+    max_tokens_to_generate,
+    temperature,
+    top_p,
+    do_sample,
+    only_cpu,
 ):
     device = "cuda" if torch.cuda.is_available() and not only_cpu else "cpu"
 
@@ -128,7 +128,7 @@ def main(
     image_size = model.config.vision_config.image_size
     processor = PaliGemmaProcessor(tokenizer, num_image_tokens, image_size)
 
-    print("Running inference")
+    print("Running inference!")
     with torch.no_grad():
         test_inference(
             model,

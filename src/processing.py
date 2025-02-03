@@ -97,7 +97,7 @@ class PaliGemmaProcessor:
         ]  # These tokens are used for object segmentation
         tokenizer.add_tokens(EXTRA_TOKENS)
         self.image_token_id = tokenizer.convert_tokens_to_ids(self.IMAGE_TOKEN)
-        # We will add the BOS and EOS tokens ourself
+        # The tokenizer will not automatically prepend a BOS token or append an EOS token when encoding text.
         tokenizer.add_bos_token = False
         tokenizer.add_eos_token = False
 

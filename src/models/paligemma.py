@@ -16,9 +16,9 @@ class PaliGemma(nn.Module):
     def __init__(self, config: PaliGemmaConfig):
         super().__init__()
         self.config = config
-        self.vision_model = SiglipVisionModel(config.vision_config)
-        self.projector = MultiModalProjector(config)
         self.vocab_size = config.vocab_size
+        self.vision_tower = SiglipVisionModel(config.vision_config)
+        self.multi_modal_projector = MultiModalProjector(config)
         self.language_model = Gemma(config.text_config)
 
         self.pad_token_id = (
@@ -61,9 +61,9 @@ class PaliGemma(nn.Module):
         pad_mask = input_ids == self.pad_token_id
 
         # We expand the masks to the embedding dimension for torch.where
-        text_mask = text_mask.unsqueeze(-1).expand_as(-1, -1, embed_dim)
-        image_mask = image_mask.unsqueeze(-1).expand_as(-1, -1, embed_dim)
-        pad_mask = pad_mask.unsqueeze(-1).expand_as(-1, -1, embed_dim)
+        text_mask = text_mask.unsqueeze(-1).expand(-1, -1, embed_dim)
+        image_mask = image_mask.unsqueeze(-1).expand(-1, -1, embed_dim)
+        pad_mask = pad_mask.unsqueeze(-1).expand(-1, -1, embed_dim)
 
         # Add the text embeddings
         embedding = torch.where(text_mask, inputs_embeds, embedding)
@@ -124,11 +124,11 @@ class PaliGemma(nn.Module):
 
         # We now Merge text and images.
         # (batch_size, channels, height, width) => (batch_size, num_patches, embed_dim)
-        image_features = self.vision_model(pixel_values.to(inputs_embeds.dtype))
+        image_features = self.vision_tower(pixel_values.to(inputs_embeds.dtype))
 
         # Project the image features to the same size as the text embeddings.
         # (batch_size, num_patches, embed_dim) => (batch_size, sequence_length, hidden_size)
-        image_embeds = self.projector(image_features)
+        image_embeds = self.multi_modal_projector(image_features)
 
         # Merge the embeddings of the text tokens and image tokens.
         inputs_embeds, attention_mask, position_ids = (

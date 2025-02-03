@@ -4,6 +4,8 @@ _(Work in Progress...)_
 
 This repository contains the implementation of a Vision-Language Model (PaliGemma) built from scratch as a personal project.
 
+- Some parts of the code are inspired by the HF implementation in order to load the weights and run the inference properly.
+
 ![PaliGemma Architecture.](media/architecture.png)
 
 # Architecture
@@ -29,6 +31,8 @@ In this implementation, the images are always resized to 224x224 pixels, corresp
 # Inference
 
 For inference, use the corresponding `src/inference.py` file and pass the desired arguments.
+
+In order to use the weights from HF, we need to make sure that instances and variables of the models and layers are named the same way as in the `model.safetensors.index.json` file.
 
 ## Downloading Weights
 
