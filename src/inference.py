@@ -1,11 +1,12 @@
 import torch
 from PIL import Image
 
-from processing import PaliGemmaProcessor
+from preprocessing import PaliGemmaProcessor
 from models.paligemma import PaliGemma
 from models.gemma import KVCache
 from utils import load_hf_model
 from config import get_args
+from detection import display_detection
 
 ################################### Useful functions ###################################
 
@@ -31,6 +32,7 @@ def test_inference(
     processor: PaliGemmaProcessor,
     device: str,
     prompt: str,
+    detection: bool,
     image_file_path: str,
     max_tokens_to_generate: int,
     temperature: float,
@@ -50,7 +52,6 @@ def test_inference(
 
     for _ in range(max_tokens_to_generate):
         # Get the model outputs
-        # TODO: remove the labels
         outputs = model(
             input_ids=input_ids,
             pixel_values=pixel_values,
@@ -82,7 +83,10 @@ def test_inference(
     # Decode the generated tokens
     decoded = processor.tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
-    print(prompt + decoded)
+    print(f"\nInput: {prompt}\n" + f"Output: {decoded}.")
+    # Display the detection if detection=True (the prompt has to be "detect <object>").
+    if detection:
+        display_detection(decoded, image_file_path)
 
 
 def _sample_top_p(probs: torch.Tensor, p: float):
@@ -110,6 +114,7 @@ def _sample_top_p(probs: torch.Tensor, p: float):
 def main(
     model_path,
     prompt,
+    detection,
     image_file_path,
     max_tokens_to_generate,
     temperature,
@@ -119,9 +124,9 @@ def main(
 ):
     device = "cuda" if torch.cuda.is_available() and not only_cpu else "cpu"
 
-    print("Device in use:", device)
+    print(f"Device in use:{device}.")
 
-    print(f"Loading the weights from {model_path}")
+    print(f"Loading the weights from {model_path}.")
     model, tokenizer = load_hf_model(model_path, device)
     model = model.to(device).eval()
 
@@ -136,6 +141,7 @@ def main(
             processor,
             device,
             prompt,
+            detection,
             image_file_path,
             max_tokens_to_generate,
             temperature,
@@ -149,6 +155,7 @@ if __name__ == "__main__":
     main(
         model_path=args.model_path,
         prompt=args.prompt,
+        detection=args.detection,
         image_file_path=args.image_file_path,
         max_tokens_to_generate=args.max_tokens_to_generate,
         temperature=args.temperature,

@@ -16,15 +16,21 @@ def get_args():
     parser.add_argument(
         "--prompt",
         type=str,
-        default="What is it ?",
+        default="Detect tiger",
         # required=True,
         help="Prompt text given to the model.",
+    )
+    parser.add_argument(
+        "--detection",
+        type=bool,
+        default=True,
+        help="Display object detection (True/False). Must be used with a 'detect <object>' prompt.",
     )
 
     parser.add_argument(
         "--image_file_path",
         type=str,
-        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/images/eiffel_tower.jpg",
+        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/images/tiger.jpg",
         # required=True,
         help="Path to the input image file.",
     )
