@@ -26,6 +26,7 @@ class PaliGemma(nn.Module):
             self.config.pad_token_id if self.config.pad_token_id is not None else -1
         )
 
+    # We reuse the embeddings of the language model in the last linear layer
     def tie_weights(self):
         return self.language_model.tie_weights()
 
@@ -51,13 +52,13 @@ class PaliGemma(nn.Module):
             dtype=inputs_embeds.dtype,
             device=inputs_embeds.device,
         )
-        # Shape: [Batch_Size, Seq_Len]. True for text tokens
+        # (batch_size, seq_len)
         text_mask = (input_ids != self.config.image_token_index) & (
             input_ids != self.pad_token_id
         )
-        # Shape: [Batch_Size, Seq_Len]. True for image tokens
+        # (batch_size, seq_len)
         image_mask = input_ids == self.config.image_token_index
-        # Shape: [Batch_Size, Seq_Len]. True for padding tokens
+        # (batch_size, seq_len)
         pad_mask = input_ids == self.pad_token_id
 
         # We need to expand the masks to the embedding dimension otherwise we can't use them in torch.where
@@ -78,15 +79,13 @@ class PaliGemma(nn.Module):
             pad_mask_expanded, torch.zeros_like(final_embedding), final_embedding
         )
 
-        #### CREATE THE ATTENTION MASK ####
-
+        # Attention Mask
         dtype, device = inputs_embeds.dtype, inputs_embeds.device
-        min_dtype = torch.finfo(dtype).min
         q_len = inputs_embeds.shape[1]
 
         if kv_cache is None or kv_cache.num_items() == 0:
             # Do not mask any token, because we're in the prefill phase
-            # This only works when we have no padding
+            # This implementation does not support padding.
             causal_mask = torch.full(
                 (batch_size, q_len, q_len), fill_value=0, dtype=dtype, device=device
             )
@@ -95,13 +94,13 @@ class PaliGemma(nn.Module):
             assert q_len == 1
             kv_len = kv_cache.num_items() + q_len
             # Also in this case we don't need to mask anything, since each query should be able to attend all previous tokens.
-            # This only works when we have no padding
+            # This implementation does not support padding.
             causal_mask = torch.full(
                 (batch_size, q_len, kv_len), fill_value=0, dtype=dtype, device=device
             )
 
         # Add the head dimension
-        # [Batch_Size, Q_Len, KV_Len] -> [Batch_Size, Num_Heads_Q, Q_Len, KV_Len]
+        # (batch_size, q_len, kv_len) -> (batch_size, 1, q_len, kv_len)
         causal_mask = causal_mask.unsqueeze(1)
 
         if kv_cache is not None and kv_cache.num_items() > 0:
@@ -131,14 +130,14 @@ class PaliGemma(nn.Module):
         # Make sure the input is right-padded
         assert torch.all(attention_mask == 1), "The input cannot be padded"
 
-        # 1. Extra the input embeddings
-        # shape: (Batch_Size, Seq_Len, Hidden_Size)
+        # Extract the input embeddings
+        # (batch_size, seq_len, hidden_size)
         inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
 
-        # 2. Merge text and images
-        # [Batch_Size, Channels, Height, Width] -> [Batch_Size, Num_Patches, Embed_Dim]
+        # We merge the image features with the input embeddings
+        # (batch_size, channels, height, width) -> (batch_size, num_patches, embed_dim)
         selected_image_feature = self.vision_tower(pixel_values.to(inputs_embeds.dtype))
-        # [Batch_Size, Num_Patches, Embed_Dim] -> [Batch_Size, Num_Patches, Hidden_Size]
+        # (batch_size, num_patches, embed_dim) -> (batch_size, num_patches, Hidden_Size)
         image_features = self.multi_modal_projector(selected_image_feature)
 
         # Merge the embeddings of the text tokens and the image tokens

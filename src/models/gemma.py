@@ -18,7 +18,7 @@ def rotate_half(x):
 def apply_rotary_pos_emb(query, key, cos, sin, unsqueeze_dim=1):
     cos = cos.unsqueeze(unsqueeze_dim)  # Add the head dimension
     sin = sin.unsqueeze(unsqueeze_dim)  # Add the head dimension
-    # Apply the formula (34) of the Rotary Positional Encoding paper.
+    # Formula from the RoPE paper
     q_embed = (query * cos) + (rotate_half(query) * sin)
     k_embed = (key * cos) + (rotate_half(key) * sin)
     return q_embed, k_embed
@@ -47,12 +47,12 @@ class KVCache:
         layer_idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if len(self.key_cache) <= layer_idx:
-            # If we never added anything to the KV-Cache of this layer, let's create it.
+            # If we never added anything to the KV-Cache of this layer, we create it.
             self.key_cache.append(key_states)
             self.value_cache.append(value_states)
         else:
-            # ... otherwise we concatenate the new keys with the existing ones.
-            # each tensor has shape: (batch_size, num_key_value_heads, sequence_length, head_dim)
+            # We concatenate the new keys with the existing ones.
+            # (batch_size, num_key_value_heads, sequence_length, head_dim)
             self.key_cache[layer_idx] = torch.cat(
                 [self.key_cache[layer_idx], key_states], dim=-2
             )
@@ -60,7 +60,7 @@ class KVCache:
                 [self.value_cache[layer_idx], value_states], dim=-2
             )
 
-        # we return all the existing keys and the new ones.
+        # We return all the existing keys and the new ones.
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
 
 
@@ -133,13 +133,13 @@ class RotaryEmbedding(nn.Module):
         )
         with torch.autocast(device_type=device_type, enabled=False):
             # Multiply each theta by the position (which is the argument of the sin and cos functions)
-            # freqs: [Batch_Size, Head_Dim // 2, 1] @ [Batch_Size, 1, Seq_Len] --> [Batch_Size, Seq_Len, Head_Dim // 2]
+            # (batch_size, head_dim // 2, 1) @ (batch_size, 1, seq_len) -> (batch_size, head_dim // 2, seq_len)
             freqs = (
                 inv_freq_expanded.float() @ position_ids_expanded.float()
             ).transpose(1, 2)
-            # emb: [Batch_Size, Seq_Len, Head_Dim]
+            # (batch_size, seq_len, head_dim)
             emb = torch.cat((freqs, freqs), dim=-1)
-            # cos, sin: [Batch_Size, Seq_Len, Head_Dim]
+            # (batch_size, seq_len, head_dim)
             cos = emb.cos()
             sin = emb.sin()
 
@@ -284,7 +284,6 @@ class GemmaLayer(nn.Module):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.Tensor] = None,
-        inputs_embeds: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[
         torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]
@@ -374,7 +373,7 @@ class Gemma(nn.Module):
     def get_input_embeddings(self):
         return self.model.embed_tokens
 
-    # We reuse the embeddings of the model in the linear layer
+    # We reuse the embeddings of the model in the last linear layer
     def tie_weights(self):
         self.lm_head.weight = self.model.embed_tokens.weight
 
