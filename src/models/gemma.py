@@ -9,19 +9,19 @@ from models.model_config import GemmaConfig
 
 
 def rotate_half(x):
-    # Build the [-x2, x1, -x4, x3, ...] tensor
+    # Build the [-x2, x1, -x4, x3, ...] tensor for the sin part of the positional encoding.
     x1 = x[..., : x.shape[-1] // 2]  # Takes the first half of the last dimension
     x2 = x[..., x.shape[-1] // 2 :]  # Takes the second half of the last dimension
     return torch.cat((-x2, x1), dim=-1)
 
 
-# Apply the rotary position embedding to the query and key
 def apply_rotary_pos_emb(query, key, cos, sin, unsqueeze_dim=1):
-    cos = cos.unsqueeze(unsqueeze_dim)  # add the head dimension
-    sin = sin.unsqueeze(unsqueeze_dim)  # add the head dimension
-    query = (query * cos) + (rotate_half(query) * cos)
-    key = (key * sin) + (rotate_half(key) * sin)
-    return query, key
+    cos = cos.unsqueeze(unsqueeze_dim)  # Add the head dimension
+    sin = sin.unsqueeze(unsqueeze_dim)  # Add the head dimension
+    # Apply the formula (34) of the Rotary Positional Encoding paper.
+    q_embed = (query * cos) + (rotate_half(query) * sin)
+    k_embed = (key * cos) + (rotate_half(key) * sin)
+    return q_embed, k_embed
 
 
 ################################### Gemma Model ###################################
@@ -37,27 +37,30 @@ class KVCache:
         if len(self.key_cache) == 0:
             return 0
         else:
-            # Shape of the key_cache: (batch_size, num_key_value_heads, sequence_length, head_dim)
+            # The shape of the key_cache is (batch_size, num_key_value_heads, sequence_length, head_dim)
             return self.key_cache[0].shape[-2]
 
     def update(
-        self, key: torch.Tensor, value: torch.Tensor, layer_idx: int
+        self,
+        key_states: torch.Tensor,
+        value_states: torch.Tensor,
+        layer_idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if len(self.key_cache) <= layer_idx:
-            # If we never added anything to the KV-cache of this layer, let's create it
-            self.key_cache.append(key)
-            self.value_cache.append(value)
+            # If we never added anything to the KV-Cache of this layer, let's create it.
+            self.key_cache.append(key_states)
+            self.value_cache.append(value_states)
         else:
-            # otherwise we concatenate the new key and value to the existing cache
-            # Shape of the key_cache: (batch_size, num_key_value_heads, sequence_length, head_dim)
+            # ... otherwise we concatenate the new keys with the existing ones.
+            # each tensor has shape: (batch_size, num_key_value_heads, sequence_length, head_dim)
             self.key_cache[layer_idx] = torch.cat(
-                [self.key_cache[layer_idx], key], dim=-2
+                [self.key_cache[layer_idx], key_states], dim=-2
             )
             self.value_cache[layer_idx] = torch.cat(
-                [self.value_cache[layer_idx], value], dim=-2
+                [self.value_cache[layer_idx], value_states], dim=-2
             )
 
-        # we return all the keys and values of the cache (including the new ones)
+        # we return all the existing keys and the new ones.
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
 
 
@@ -90,26 +93,21 @@ class MLP(nn.Module):
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
 
     def forward(self, x):
-        # (batch_size, sequence_length, hidden_size) => (batch_size, sequence_length, intermediate_size)
-        gated_activation = self.gate_proj(x)
-        gated_activation = nn.functional.gelu(gated_activation, approximate="tanh")
-        upscaled_input = self.up_proj(x)
-        transformed = gated_activation * upscaled_input
-
-        # (batch_size, sequence_length, intermediate_size) => (batch_size, sequence_length, hidden_size)
-        output = self.down_proj(transformed)
-        return output
+        # (batch_size, sequence_length, hidden_size)
+        return self.down_proj(
+            nn.functional.gelu(self.gate_proj(x), approximate="tanh") * self.up_proj(x)
+        )
 
 
 class RotaryEmbedding(nn.Module):
-
-    def __init__(self, dim: int, max_position_embeddings=2048, base=10000, device=None):
+    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
         super().__init__()
-        self.dim = dim  # head_dim
+
+        self.dim = dim  # it is set to the head_dim
         self.max_position_embeddings = max_position_embeddings
         self.base = base
 
-        # We calculate the theta according to the formula theta_i = base^(2i/dim) where i = 0, 1, 2, ..., dim // 2
+        # Calculate the theta according to the formula theta_i = base^(-2i/dim) where i = 0, 1, 2, ..., dim // 2
         inv_freq = 1.0 / (
             self.base
             ** (torch.arange(0, self.dim, 2, dtype=torch.int64).float() / self.dim)
@@ -118,13 +116,14 @@ class RotaryEmbedding(nn.Module):
 
     @torch.no_grad()
     def forward(self, x, position_ids, seq_len=None):
-        # (batch_size, num_heads, sequence_length, head_dim)
+        # x: [bs, num_attention_heads, seq_len, head_size]
         self.inv_freq.to(x.device)
-        # (batch_size, head_dim//2, 1)
+        # Copy the inv_freq tensor for batch in the sequence
+        # inv_freq_expanded: [Batch_Size, Head_Dim // 2, 1]
         inv_freq_expanded = (
             self.inv_freq[None, :, None].float().expand(position_ids.shape[0], -1, 1)
         )
-        # position_ids_expanded: (batch_size, 1, sequence_length)
+        # position_ids_expanded: [Batch_Size, 1, Seq_Len]
         position_ids_expanded = position_ids[:, None, :].float()
         device_type = x.device.type
         device_type = (
@@ -133,14 +132,14 @@ class RotaryEmbedding(nn.Module):
             else "cpu"
         )
         with torch.autocast(device_type=device_type, enabled=False):
-            # We multiply each theta by the position (which is the argument of the sin and cos functions)
-            # freqs: (batch_size, head_dim//2, 1) @ (batch_size, 1, sequence_length) => (batch_size, sequence_length, head_dim//2)
+            # Multiply each theta by the position (which is the argument of the sin and cos functions)
+            # freqs: [Batch_Size, Head_Dim // 2, 1] @ [Batch_Size, 1, Seq_Len] --> [Batch_Size, Seq_Len, Head_Dim // 2]
             freqs = (
                 inv_freq_expanded.float() @ position_ids_expanded.float()
             ).transpose(1, 2)
-            emb = torch.cat(
-                (freqs, freqs), dim=-1
-            )  # HF implementation, which isn't exactly like in the paper.
+            # emb: [Batch_Size, Seq_Len, Head_Dim]
+            emb = torch.cat((freqs, freqs), dim=-1)
+            # cos, sin: [Batch_Size, Seq_Len, Head_Dim]
             cos = emb.cos()
             sin = emb.sin()
 

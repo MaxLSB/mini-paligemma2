@@ -5,6 +5,36 @@ import torch.nn as nn
 # The hyperparameters of the PaliGemma/Gemma/Siglip models can be found here: https://huggingface.co/google/paligemma-3b-pt-224/blob/main/config.json
 
 
+class SiglipConfig:
+
+    def __init__(
+        self,
+        hidden_size=768,
+        intermediate_size=3072,
+        num_hidden_layers=12,
+        num_attention_heads=12,
+        num_channels=3,
+        image_size=224,
+        patch_size=16,
+        layer_norm_eps=1e-6,
+        attention_dropout=0.0,
+        num_image_tokens: int = None,
+        **kwargs,
+    ):
+        super().__init__()
+
+        self.hidden_size = hidden_size
+        self.intermediate_size = intermediate_size
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.num_channels = num_channels
+        self.patch_size = patch_size
+        self.image_size = image_size
+        self.attention_dropout = attention_dropout
+        self.layer_norm_eps = layer_norm_eps
+        self.num_image_tokens = num_image_tokens
+
+
 class GemmaConfig:
 
     def __init__(
@@ -40,36 +70,6 @@ class GemmaConfig:
         self.pad_token_id = pad_token_id
 
 
-class SiglipVisionConfig:
-
-    def __init__(
-        self,
-        hidden_size=768,
-        intermediate_size=3072,
-        num_hidden_layers=12,
-        num_attention_heads=12,
-        num_channels=3,
-        image_size=224,
-        patch_size=16,
-        layer_norm_eps=1e-6,
-        attention_dropout=0.0,
-        num_image_tokens: int = None,
-        **kwargs,
-    ):
-        super().__init__()
-
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.num_channels = num_channels
-        self.patch_size = patch_size
-        self.image_size = image_size
-        self.attention_dropout = attention_dropout
-        self.layer_norm_eps = layer_norm_eps
-        self.num_image_tokens = num_image_tokens
-
-
 class PaliGemmaConfig:
 
     def __init__(
@@ -94,7 +94,7 @@ class PaliGemmaConfig:
         self.is_encoder_decoder = False
         self.pad_token_id = pad_token_id
 
-        self.vision_config = SiglipVisionConfig(**vision_config)
+        self.vision_config = SiglipConfig(**vision_config)
         self.text_config = text_config
 
         self.text_config = GemmaConfig(**text_config, pad_token_id=pad_token_id)

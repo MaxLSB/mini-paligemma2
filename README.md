@@ -36,7 +36,9 @@ In order to use the weights from HF, we need to make sure that instances and var
 
 ## Downloading Weights
 
-You will need to download the PaliGemma weights from the Hugging Face repository to perform inference: [PaliGemma 3B PT 224](https://huggingface.co/google/paligemma-3b-pt-224).
+You will need to download the PaliGemma weights from Hugging Face to perform inference (either the pretrained weights or the fine-tuned weights): 
+- [PaliGemma 3B PT 224](https://huggingface.co/google/paligemma-3b-pt-224).
+- [PaliGemma 3B mix 224](https://huggingface.co/google/paligemma-3b-mix-224).
 
 To download the weights:
 

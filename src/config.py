@@ -1,5 +1,7 @@
 import argparse
 
+################################### Configurations ###################################
+
 
 def get_args():
     parser = argparse.ArgumentParser(description="Run inference with PaliGemma model.")
@@ -7,21 +9,22 @@ def get_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/paligemma-3b-pt-224",
+        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/paligemma-3b-mix-224",
         # required=True,
         help="Path to the model directory.",
     )
     parser.add_argument(
         "--prompt",
         type=str,
-        default="Describe the image.",
+        default="What is it ?",
         # required=True,
         help="Prompt text given to the model.",
     )
+
     parser.add_argument(
         "--image_file_path",
         type=str,
-        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/images/tiger.jpg",
+        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/images/eiffel_tower.jpg",
         # required=True,
         help="Path to the input image file.",
     )

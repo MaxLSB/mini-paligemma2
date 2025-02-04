@@ -84,17 +84,17 @@ class PaliGemmaProcessor:
     IMAGE_TOKEN = "<image>"
 
     def __init__(self, tokenizer, num_image_tokens: int, image_size: int):
+        super().__init__()
         self.image_seq_length = num_image_tokens
         self.image_size = image_size
 
         tokens_to_add = {"additional_special_tokens": [self.IMAGE_TOKEN]}
         tokenizer.add_special_tokens(tokens_to_add)
+        # Tokens for object segmentation
         EXTRA_TOKENS = [
             f"<loc{i:04d}>" for i in range(1024)
         ]  # These tokens are used for object detection (bounding boxes)
-        EXTRA_TOKENS += [
-            f"<seg{i:03d}>" for i in range(128)
-        ]  # These tokens are used for object segmentation
+        EXTRA_TOKENS += [f"<seg{i:03d}>" for i in range(128)]
         tokenizer.add_tokens(EXTRA_TOKENS)
         self.image_token_id = tokenizer.convert_tokens_to_ids(self.IMAGE_TOKEN)
         # The tokenizer will not automatically prepend a BOS token or append an EOS token when encoding text.
@@ -108,7 +108,7 @@ class PaliGemmaProcessor:
         text: List[str],
         images: List[Image.Image],
         padding: str = "longest",
-        truncation: bool = True,
+        truncation: bool = False,
     ) -> dict:
         assert (
             len(images) == 1 and len(text) == 1
@@ -140,6 +140,7 @@ class PaliGemmaProcessor:
 
         # Returns the input_ids and attention_mask as PyTorch tensors
         # The attention mask is only 1s as we don't use padding
+        # The model has been trained with a maximum sequence length of 128
         inputs = self.tokenizer(
             input_strings,
             return_tensors="pt",

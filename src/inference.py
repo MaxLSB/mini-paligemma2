@@ -50,6 +50,7 @@ def test_inference(
 
     for _ in range(max_tokens_to_generate):
         # Get the model outputs
+        # TODO: remove the labels
         outputs = model(
             input_ids=input_ids,
             pixel_values=pixel_values,
@@ -85,11 +86,11 @@ def test_inference(
 
 
 def _sample_top_p(probs: torch.Tensor, p: float):
-    # (batch_size, vocab_size)
+    # (B, vocab_size)
     probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
-    # (batch_size, vocab_size)
+    # (B, vocab_size)
     probs_sum = torch.cumsum(probs_sort, dim=-1)
-    # (batch_size, vocab_size)
+    # (B, vocab_size)
     # (Substracting "probs_sort" shifts the cumulative sum by 1 position to the right before masking)
     mask = probs_sum - probs_sort > p
     # Zero out all the probabilities of tokens that are not selected by the Top P

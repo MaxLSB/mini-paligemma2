@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.model_config import SiglipVisionConfig
+from models.model_config import SiglipConfig
 
 
 ################################### Siglip Vision Encoder ###################################
@@ -8,7 +8,7 @@ from models.model_config import SiglipVisionConfig
 
 class SiglipVisionEmbeddings(nn.Module):
 
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         self.embed_dim = config.hidden_size
@@ -35,15 +35,15 @@ class SiglipVisionEmbeddings(nn.Module):
     def forward(self, pixel_values):
         patch_embeds = self.patch_embedding(
             pixel_values
-        )  # [batch_size, embed_dim, num_patches_h, num_patches_w] | Also: num_patches_h * num_patches_w = num_patches
-        embeddings = patch_embeds.flatten(2)  # [batch_size, embed_dim, num_patches]
-        embeddings = embeddings.transpose(1, 2)  # [batch_size, num_patches, embed_dim]
+        )  # (batch_size, embed_dim, num_patches_h, num_patches_w) | Also: num_patches_h * num_patches_w = num_patches
+        embeddings = patch_embeds.flatten(2)  # (batch_size, embed_dim, num_patches)
+        embeddings = embeddings.transpose(1, 2)  # (batch_size, num_patches, embed_dim)
         embeddings = embeddings + self.position_embedding(self.position_ids)
         return embeddings
 
 
 class SiglipAttention(nn.Module):
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         self.embed_dim = config.hidden_size
@@ -57,9 +57,9 @@ class SiglipAttention(nn.Module):
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim)
 
     def forward(self, x):
-        # [batch_size, num_patches, embed_dim]
+        # (batch_size, num_patches, embed_dim)
         batch_size, num_patches, _ = x.size()
-        # [batch_size, num_patches, embed_dim] => [batch_size, num_heads, num_patches, head_dim]
+        # (batch_size, num_patches, embed_dim) => (batch_size, num_heads, num_patches, head_dim)
         query = (
             self.q_proj(x)
             .view(batch_size, num_patches, self.num_heads, self.head_dim)
@@ -84,10 +84,10 @@ class SiglipAttention(nn.Module):
         attn_output = torch.matmul(attn_weights, values)
         attn_output = attn_output.transpose(
             1, 2
-        ).contiguous()  # [batch_size, num_patches, num_heads, head_dim]
+        ).contiguous()  # (batch_size, num_patches, num_heads, head_dim)
         attn_output = attn_output.view(
             batch_size, num_patches, self.embed_dim
-        )  # [batch_size, num_patches, embed_dim]
+        )  # (batch_size, num_patches, embed_dim)
 
         attn_output = self.out_proj(attn_output)
 
@@ -95,7 +95,7 @@ class SiglipAttention(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
@@ -112,7 +112,7 @@ class MLP(nn.Module):
 
 
 class SiglipEncoderLayer(nn.Module):
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         self.embed_dim = config.hidden_size
@@ -123,7 +123,7 @@ class SiglipEncoderLayer(nn.Module):
         self.self_attn = SiglipAttention(config)
 
     def forward(self, x):
-        # [batch_size, num_patches, embed_dim]
+        # (batch_size, num_patches, embed_dim)
         residual = x
         x = self.layer_norm1(x)
         x, _ = self.self_attn(x)
@@ -133,13 +133,13 @@ class SiglipEncoderLayer(nn.Module):
         x = self.layer_norm2(x)
         x = self.mlp(x)
         x = residual + x
-        # [batch_size, num_patches, embed_dim]
+        # (batch_size, num_patches, embed_dim)
         return x
 
 
 class SiglipEncoder(nn.Module):
 
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         self.num_layers = config.num_hidden_layers
@@ -155,7 +155,7 @@ class SiglipEncoder(nn.Module):
 
 class SiglipVisionTransformer(nn.Module):
 
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         embed_dim = config.hidden_size
@@ -174,11 +174,11 @@ class SiglipVisionTransformer(nn.Module):
 
 class SiglipVisionModel(nn.Module):
 
-    def __init__(self, config: SiglipVisionConfig):
+    def __init__(self, config: SiglipConfig):
         super().__init__()
         self.config = config
         self.vision_model = SiglipVisionTransformer(config)
 
     def forward(self, pixel_values):
-        # pixel_values: [batch_size, num_channels, height, width] => [batch_size, num_patches, embed_dim]
+        # pixel_values:(batch_size, num_channels, image_size, image_size) => (batch_size, num_patches, embed_dim)
         return self.vision_model(pixel_values=pixel_values)
