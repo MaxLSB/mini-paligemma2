@@ -6,8 +6,8 @@ from typing import Dict, List, Optional, Tuple, Iterable, Union
 
 ################################### Constants ###################################
 
-IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]
-IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]
+IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]  # From HF code
+IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]  # From HF code
 
 ################################### Utility functions ###################################
 

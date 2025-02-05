@@ -83,7 +83,7 @@ def test_inference(
     # Decode the generated tokens
     decoded = processor.tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
-    print(f"\nInput: {prompt}\n" + f"Output: {decoded}.")
+    print(f"\n> Input: {prompt}\n" + f"> Output: {decoded}.")
     # Display the detection if detection=True (the prompt has to be "detect <object>").
     if detection:
         display_detection(decoded, image_file_path)
@@ -124,9 +124,9 @@ def main(
 ):
     device = "cuda" if torch.cuda.is_available() and not only_cpu else "cpu"
 
-    print(f"Device in use:{device}.")
+    print(f"> Device in use: {device}.")
 
-    print(f"Loading the weights from {model_path}.")
+    print(f"> Loading the weights from {model_path}.")
     model, tokenizer = load_hf_model(model_path, device)
     model = model.to(device).eval()
 
@@ -134,7 +134,7 @@ def main(
     image_size = model.config.vision_config.image_size
     processor = PaliGemmaProcessor(tokenizer, num_image_tokens, image_size)
 
-    print("Running inference!")
+    print("> Running inference!")
     with torch.no_grad():
         test_inference(
             model,
