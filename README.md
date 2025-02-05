@@ -100,7 +100,7 @@ This isn't really a conversational model. But it is good at several tasks (even 
 |------------------------|--------|-------------------------------------------------------------------------|------------------------------------------------------------------|
 | `--model_path`          | str    | `"/model/path/paligemma-3b-mix-224"` | Path to the model directory.                                     |
 | `--prompt`              | str    | `"Detect tiger"`                                                       | Prompt text given to the model.                                  |
-| `--detection`           | bool   | `True`                                                                  | Display object detection on the image (True/False). Must be used with a 'detect <entity>' prompt. |
+| `--detection`           | bool   | `True`                                                                  | Display object detection on the image (True/False). Must be used with a 'detect <entity>' prompt, with the fine-tuned model. |
 | `--image_file_path`     | str    | `"your/image/tiger.jpg"` | Path to the input image file.                                    |
 | `--max_tokens_to_generate` | int  | `100`                                                                  | Maximum number of tokens to generate.                            |
 | `--temperature`         | float  | `0.8`                                                                   | Sampling temperature.                                            |

@@ -24,7 +24,7 @@ def get_args():
         "--detection",
         type=bool,
         default=True,
-        help="Display object detection (True/False). Must be used with a 'detect <entity>' prompt.",
+        help="Display object detection (True/False). Must be used with a 'detect <entity>' prompt, with the fine-tuned model.",
     )
 
     parser.add_argument(

@@ -4,10 +4,10 @@ import numpy as np
 
 ################################### Detection ###################################
 
-# Works with both the pre-trained and fine-tuned models.
-# Prompt: detection <entity>
-# <loc[value]> is the token used to detect objects in the image.
-# There are 1024 total loc tokens.
+# Works only with the fine-tuned models like PaliGemma-3b-mix-224
+# Prompt: 'Detect <entity>'
+# <loc[value]> is the token used to detect objects in the image
+# There are 1024 total loc tokens
 # Each detection is represented by a bounding box with 4 values (in order): y_min, x_min, y_max, x_max
 # To convert x values to coordinate, use the following formula: value * image_width / 1024
 # To convert y values to coordinate, use the following formula: value * image_height / 1024
