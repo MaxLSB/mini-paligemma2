@@ -84,7 +84,7 @@ This isn't really a conversational model. But it is good at several tasks (even 
 
 **Example of a detection prompt with PaliGemma-3B-mix-224:**
 
-```bash
+```
 > Input: Detect tiger
 > Output: <loc0190><loc0022><loc0980><loc1023> tiger.
 ```
