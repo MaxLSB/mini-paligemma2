@@ -4,7 +4,17 @@ import argparse
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Run inference with PaliGemma model.")
+    parser = argparse.ArgumentParser(
+        description="Run inference with PaliGemma/PaliGemma2 model."
+    )
+
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        default="paligemma",
+        choices=["paligemma", "paligemma2"],
+        help="Model type (choices: paligemma or paligemma2).",
+    )
 
     parser.add_argument(
         "--model_path",
@@ -24,7 +34,7 @@ def get_args():
         "--detection",
         type=bool,
         default=True,
-        help="Display object detection (True/False). Must be used with a 'detect <entity>' prompt, with the fine-tuned model.",
+        help="Display object detection (True/False). Must be used with a 'Detect <entity>' prompt, with the fine-tuned model.",
     )
 
     parser.add_argument(

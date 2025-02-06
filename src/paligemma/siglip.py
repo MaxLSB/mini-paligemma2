@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.model_config import SiglipConfig
+from paligemma.config_models import SiglipConfig
 
 
 ################################### Siglip Vision Encoder ###################################

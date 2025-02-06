@@ -1,9 +1,9 @@
 import torch
 from PIL import Image
+import time
 
 from preprocessing import PaliGemmaProcessor
-from models.paligemma import PaliGemma
-from models.gemma import KVCache
+from paligemma.gemma import KVCache
 from utils import load_hf_model
 from config import get_args
 from detection import display_detection
@@ -28,7 +28,7 @@ def get_model_inputs(
 
 
 def test_inference(
-    model: PaliGemma,
+    model,
     processor: PaliGemmaProcessor,
     device: str,
     prompt: str,
@@ -49,6 +49,8 @@ def test_inference(
     # Generate tokens until you see the stop token
     stop_token = processor.tokenizer.eos_token_id
     generated_tokens = []
+
+    start_time = time.time()
 
     for _ in range(max_tokens_to_generate):
         # Get the model outputs
@@ -73,17 +75,28 @@ def test_inference(
         # Stop if the stop token has been generated
         if next_token.item() == stop_token:
             break
+
         # Append the next token to the input
         input_ids = next_token.unsqueeze(-1)
         attention_mask = torch.cat(
             [attention_mask, torch.ones((1, 1), device=input_ids.device)], dim=-1
         )
 
+        # Tokens per second
+        elapsed_time = time.time() - start_time
+        tokens_generated = len(generated_tokens)
+        tps = tokens_generated / elapsed_time
+
+        print(f"Generating tokens... ({tps:.2f} tokens/s)", end="\r")
+
+    print("\n")
+
     generated_tokens = torch.cat(generated_tokens, dim=-1)
     # Decode the generated tokens
     decoded = processor.tokenizer.decode(generated_tokens, skip_special_tokens=True)
-
-    print(f"\n> Input: {prompt}\n" + f"> Output: {decoded}.")
+    print("-" * 55)
+    print(f"\n> Input: {prompt}\n" + f"> Output: {decoded}.\n")
+    print("-" * 55)
     # Display the detection if detection=True (the prompt has to be "detect <object>").
     if detection:
         display_detection(decoded, image_file_path)
@@ -112,6 +125,7 @@ def _sample_top_p(probs: torch.Tensor, p: float):
 
 
 def main(
+    model_type,
     model_path,
     prompt,
     detection,
@@ -124,17 +138,27 @@ def main(
 ):
     device = "cuda" if torch.cuda.is_available() and not only_cpu else "cpu"
 
-    print(f"> Device in use: {device}.")
+    print(f"> Device: {device}.")
 
-    print(f"> Loading the weights from {model_path}.")
-    model, tokenizer = load_hf_model(model_path, device)
+    if model_type == "paligemma2":
+        print(f"> Model: PaliGemma 2.")
+    elif model_type == "paligemma":
+        print(f"> Model: PaliGemma.")
+    else:
+        raise ValueError(
+            "Invalid model type. Please choose between 'paligemma' and 'paligemma2'."
+        )
+
+    print(f"> Loading the weights from: {model_path}.")
+
+    model, tokenizer = load_hf_model(model_path, model_type, device)
     model = model.to(device).eval()
 
     num_image_tokens = model.config.vision_config.num_image_tokens
     image_size = model.config.vision_config.image_size
     processor = PaliGemmaProcessor(tokenizer, num_image_tokens, image_size)
 
-    print("> Running inference!")
+    print("> Running inference!\n")
     with torch.no_grad():
         test_inference(
             model,
@@ -153,6 +177,7 @@ def main(
 if __name__ == "__main__":
     args = get_args()
     main(
+        model_type=args.model_type,
         model_path=args.model_path,
         prompt=args.prompt,
         detection=args.detection,

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, List
 import math
-from models.model_config import GemmaConfig
+from paligemma2.config_models import Gemma2Config
 
 
 ################################### Useful functions ###################################
@@ -24,7 +24,7 @@ def apply_rotary_pos_emb(query, key, cos, sin, unsqueeze_dim=1):
     return q_embed, k_embed
 
 
-################################### Gemma Model ###################################
+################################### Gemma 2 Model ###################################
 
 
 class KVCache:
@@ -82,7 +82,7 @@ class RMSNorm(nn.Module):
 
 class MLP(nn.Module):
 
-    def __init__(self, config: GemmaConfig):
+    def __init__(self, config: Gemma2Config):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
@@ -146,9 +146,9 @@ class RotaryEmbedding(nn.Module):
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
 
-class GroupQueryAttention(nn.Module):
+class Gemma2GQA(nn.Module):
 
-    def __init__(self, config: GemmaConfig, layer_idx: int):
+    def __init__(self, config: Gemma2Config, layer_idx: int):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
@@ -163,23 +163,29 @@ class GroupQueryAttention(nn.Module):
         self.rope_theta = config.rope_theta
         self.is_causal = True
 
+        # Specific to Gemma2
+        self.sliding_window_size = config.sliding_window_size
+        self.attn_logit_softcapping = config.attn_logit_softcapping
+        self.attn_logit_softcapping = config.attn_logit_softcapping
+        self.attn_types = config.attn_types
+
         assert (
             self.hidden_size % self.num_heads == 0
         ), "Hidden size must be divisible by the number of heads."
 
         self.q_proj = nn.Linear(
             self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias
-        )  # [1024, 8 * 128] = [1024, 1024]
+        )
         self.k_proj = nn.Linear(
             self.hidden_size,
             self.num_key_value_heads * self.head_dim,
             bias=config.attention_bias,
-        )  # [1024, 1 * 128] = [1024, 128]
+        )
         self.v_proj = nn.Linear(
             self.hidden_size,
             self.num_key_value_heads * self.head_dim,
             bias=config.attention_bias,
-        )  # [1024, 1 * 128] = [1024, 128]
+        )
         self.o_proj = nn.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=config.attention_bias
         )
@@ -209,19 +215,17 @@ class GroupQueryAttention(nn.Module):
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         batch_size, seq_len, _ = hidden_states.size()
-        # (batch_size, sequence_length, hidden_size) => (batch_size, num_heads, sequence_length, head_dim)
+
         query = (
             self.q_proj(hidden_states)
             .view(batch_size, seq_len, self.num_heads, self.head_dim)
             .transpose(1, 2)
         )
-        # (batch_size, sequence_length, hidden_size) => (batch_size, num_key_value_heads, sequence_length, head_dim)
         key = (
             self.k_proj(hidden_states)
             .view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
             .transpose(1, 2)
         )
-        # (batch_size, sequence_length, hidden_size) => (batch_size, num_key_value_heads, sequence_length, head_dim)
         value = (
             self.v_proj(hidden_states)
             .view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
@@ -229,24 +233,39 @@ class GroupQueryAttention(nn.Module):
         )
 
         cos, sin = self.rotary_emb(value, position_ids, seq_len=None)
-        # (batch_size, num_heads, sequence_length, head_dim), (batch_size, num_key_value_heads, sequence_length, head_dim)
         query, key = apply_rotary_pos_emb(query, key, cos, sin)
 
+        # Update key and value caches if provided
         if kv_cache is not None:
             key, value = kv_cache.update(key, value, self.layer_idx)
 
-        # As it is GQA, we need to repeat the key and values to match the number of heads of the query
+        # Repeat key and value to match the number of query heads
         key = self.repeat_kv(key, self.num_key_value_groups)
         value = self.repeat_kv(value, self.num_key_value_groups)
 
-        # (batch_size, num_heads, sequence_length, sequence_length)
         attn_weights = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(
             self.head_dim
         )
 
-        assert attention_mask is not None, "Attention mask is required for Gemma model."
-        # The attention_mask will always be a tensor of zeros. We don't mask anything as we don't have any paddings.
-        # We don't pad because we always let the user prompt to also attend futur tokens. Decision from the PaliGemma authors.
+        # Alternate between global attention and sliding window mask.
+        if (
+            self.attn_types[self.layer_idx] == "local_sliding"
+            and self.sliding_window_size is not None
+        ):
+            all_ones = torch.ones_like(attention_mask)
+            sliding_mask = torch.triu(
+                all_ones, -1 * self.sliding_window_size + 1
+            ) * torch.tril(all_ones, self.sliding_window_size - 1)
+            attention_mask = torch.where(
+                sliding_mask == 1, attention_mask, -2.3819763e38
+            )
+
+        # Apply softcapping to the attention logits
+        if self.attn_logit_softcapping is not None:
+            attn_weights = attn_weights / self.attn_logit_softcapping
+            attn_weights = torch.tanh(attn_weights)
+            attn_weights = attn_weights * self.attn_logit_softcapping
+
         attn_weights = attn_weights + attention_mask
 
         attn_weights = nn.functional.softmax(
@@ -255,29 +274,32 @@ class GroupQueryAttention(nn.Module):
         attn_weights = nn.functional.dropout(
             attn_weights, p=self.attention_dropout, training=self.training
         )
+
         attn_output = torch.matmul(attn_weights, value)
 
-        # (batch_size, num_heads, sequence_length, head_dim) => (batch_size, sequence_length, num_heads, head_dim)
+        # Reshape and project output
         attn_output = attn_output.transpose(1, 2).contiguous()
-        # Concatenate all the heads together: (batch_size, sequence_length, num_heads * head_dim)
         attn_output = attn_output.view(batch_size, seq_len, -1)
-
-        # Mix all the heads otherwise each head is independent from the others
         attn_output = self.o_proj(attn_output)
 
         return attn_output, attn_weights
 
 
-class GemmaLayer(nn.Module):
-
-    def __init__(self, config: GemmaConfig, layer_idx: int):
+class Gemma2Layer(nn.Module):
+    def __init__(self, config: Gemma2Config, layer_idx: int):
         super().__init__()
         self.hidden_size = config.hidden_size
 
-        self.self_attn = GroupQueryAttention(config=config, layer_idx=layer_idx)
+        self.self_attn = Gemma2GQA(config=config, layer_idx=layer_idx)
         self.mlp = MLP(config=config)
         self.input_layernorm = RMSNorm(config.hidden_size, config.rms_norm_eps)
         self.post_attention_layernorm = RMSNorm(config.hidden_size, config.rms_norm_eps)
+        self.pre_feedforward_layernorm = RMSNorm(
+            config.hidden_size, config.rms_norm_eps
+        )
+        self.post_feedforward_layernorm = RMSNorm(
+            config.hidden_size, config.rms_norm_eps
+        )
 
     def forward(
         self,
@@ -292,7 +314,6 @@ class GemmaLayer(nn.Module):
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
-
         hidden_states, _ = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
@@ -301,20 +322,22 @@ class GemmaLayer(nn.Module):
         )
 
         # (batch_size, sequence_length, hidden_size)
+        hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = hidden_states + residual
 
         residual = hidden_states
-        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = self.pre_feedforward_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = residual + hidden_states
+        hidden_states = self.post_feedforward_layernorm(hidden_states)
+        hidden_states = hidden_states + residual
 
         # (batch_size, sequence_length, hidden_size)
         return hidden_states
 
 
-class GemmaModel(nn.Module):
+class Gemma2Model(nn.Module):
 
-    def __init__(self, config: GemmaConfig):
+    def __init__(self, config: Gemma2Config):
         super().__init__()
         self.config = config
         self.vocab_size = config.vocab_size
@@ -325,7 +348,7 @@ class GemmaModel(nn.Module):
         )
         self.layers = nn.ModuleList(
             [
-                GemmaLayer(config, layer_idx)
+                Gemma2Layer(config, layer_idx)
                 for layer_idx in range(config.num_hidden_layers)
             ]
         )
@@ -360,15 +383,16 @@ class GemmaModel(nn.Module):
         return output
 
 
-class Gemma(nn.Module):
+class Gemma2(nn.Module):
 
-    def __init__(self, config: GemmaConfig):
+    def __init__(self, config: Gemma2Config):
         super().__init__()
         self.config = config
         self.vocab_size = config.vocab_size
 
-        self.model = GemmaModel(config)
+        self.model = Gemma2Model(config)
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.config.final_logit_softcapping = config.final_logit_softcapping
 
     def get_input_embeddings(self):
         return self.model.embed_tokens
@@ -395,6 +419,12 @@ class Gemma(nn.Module):
         )
 
         logits = self.lm_head(outputs).float()
+
+        # Apply softcapping to the logits if specified
+        if self.config.final_logit_softcapping is not None:
+            logits = logits / self.config.final_logit_softcapping
+            logits = torch.tanh(logits)
+            logits = logits * self.config.final_logit_softcapping
 
         return_data = {
             "logits": logits,

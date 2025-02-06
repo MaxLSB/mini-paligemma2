@@ -1,16 +1,18 @@
 import os
 import json
 import glob
-from typing import Tuple
 from safetensors import safe_open
 from transformers import AutoTokenizer
-from models.paligemma import PaliGemma
-from models.model_config import PaliGemmaConfig
+
+from paligemma2.paligemma2 import PaliGemma2
+from paligemma2.config_models import PaliGemma2Config
+from paligemma.paligemma import PaliGemma
+from paligemma.config_models import PaliGemmaConfig
 
 ################################### Load Hugging Face weights ###################################
 
 
-def load_hf_model(model_path: str, device: str) -> Tuple[PaliGemma, AutoTokenizer]:
+def load_hf_model(model_path: str, model_type: str, device: str):
     # Load the tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="right")
     assert tokenizer.padding_side == "right"
@@ -26,12 +28,21 @@ def load_hf_model(model_path: str, device: str) -> Tuple[PaliGemma, AutoTokenize
                 tensors[key] = f.get_tensor(key)
 
     # Load the model's config
-    with open(os.path.join(model_path, "config.json"), "r") as f:
-        model_config_file = json.load(f)
-        config = PaliGemmaConfig(**model_config_file)
 
-    # Create the model using the configuration
-    model = PaliGemma(config).to(device)
+    if model_type == "paligemma":
+        with open(os.path.join(model_path, "config.json"), "r") as f:
+            model_config_file = json.load(f)
+            config = PaliGemmaConfig(**model_config_file)
+        model = PaliGemma(config).to(device)
+
+    elif model_type == "paligemma2":
+        with open(os.path.join(model_path, "config.json"), "r") as f:
+            model_config_file = json.load(f)
+            config = PaliGemma2Config(**model_config_file)
+        model = PaliGemma2(config).to(device)
+
+    else:
+        raise ValueError(f"Model type {model_type} not supported.")
 
     # Load the state dict of the model
     model.load_state_dict(tensors, strict=False)

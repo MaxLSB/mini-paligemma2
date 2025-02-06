@@ -2,24 +2,24 @@ import torch
 import math
 from torch import nn
 from typing import Optional, Tuple
-from models.siglip import SiglipVisionModel
-from models.gemma import Gemma, KVCache
-from models.projector import MultiModalProjector
-from models.model_config import PaliGemmaConfig
+from paligemma2.config_models import PaliGemma2Config
+from paligemma2.siglip import SiglipVisionModel
+from paligemma2.gemma2 import Gemma2, KVCache
+from paligemma2.projector import MultiModalProjector
 
 
-################################### PaliGemma Model ###################################
+################################### PaliGemma 2 Model ###################################
 
 
-class PaliGemma(nn.Module):
-    def __init__(self, config: PaliGemmaConfig):
+class PaliGemma2(nn.Module):
+    def __init__(self, config: PaliGemma2Config):
         super().__init__()
         self.config = config
         self.vision_tower = SiglipVisionModel(config.vision_config)
         self.multi_modal_projector = MultiModalProjector(config)
         self.vocab_size = config.vocab_size
 
-        language_model = Gemma(config.text_config)
+        language_model = Gemma2(config.text_config)
         self.language_model = language_model
 
         self.pad_token_id = (

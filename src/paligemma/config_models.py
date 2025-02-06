@@ -1,5 +1,3 @@
-import torch.nn as nn
-
 ################################### Models Config ###################################
 
 # The hyperparameters of the PaliGemma/Gemma/Siglip models can be found here: https://huggingface.co/google/paligemma-3b-pt-224/blob/main/config.json
