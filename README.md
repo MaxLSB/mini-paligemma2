@@ -9,8 +9,8 @@ _**Note:** Some parts of the code are inspired by Google's and HF's implementati
 # Architecture
 
 <div style="display: flex; justify-content: center; gap: 20px;">
-  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" width="500" />
-  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" width="500" />
+  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" width="437" />
+  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" width="400" />
 </div>
 
 
