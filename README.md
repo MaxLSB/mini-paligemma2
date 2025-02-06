@@ -105,6 +105,8 @@ This isn't truly a conversational model, but it excels at several tasks—mainly
 > Output: <loc0190><loc0022><loc0980><loc1023> tiger.
 ```
 
+_I implemented a `--detection` setting which allows you to display the detection boxes on the input image._
+
 <div align="center">
   <img src="media/detection.png" alt="Detection of a tiger with PaliGemma-3B-mix-224" width="500" />
 </div>
