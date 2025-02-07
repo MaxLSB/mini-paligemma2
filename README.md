@@ -8,8 +8,8 @@ _**Note:** Some parts of the code are inspired by Google's and HF's implementati
 
 # Architecture
 
-<div style="display: flex; justify-content: center; width: 100%; gap: 20px;">
-  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" style="width: 500px; display: block;" />
+<div align="center">
+  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" width="500" />
 </div>
 
 <br>
@@ -35,8 +35,8 @@ This Multimodal model is composed of three main components:
 
 The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img</sub> tokens. The text is converted into N<sub>txt</sub> tokens using the Gemma's Sentence Piece tokenizer and embedded with Gemma's vocabulary embedding layer. The image tokens are then projected with the linear layer. Then the sequence of image tokens and text tokens are concatenated and fed into the Gemma-2B decoder as shown here:
 
-<div style="display: flex; justify-content: center; width: 100%; gap: 20px;">
-  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" style="width: 500px;" />
+<div align="center">
+  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" width="500" />
 </div>
 
 <br>
