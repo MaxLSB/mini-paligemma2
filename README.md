@@ -1,4 +1,4 @@
-# PaliGemma & PaliGemma 2 VLMs Implementation from Scratch
+# PaliGemma 2 & PaliGemma VLMs Implementation from Scratch
 
 _(Work in Progress...)_
 
@@ -57,7 +57,7 @@ In this implementation, the images are always resized to **224x224** pixels (we 
 First clone the repository and install the requirements:
 
 ```bash
-git clone https://github.com/MaxLSB/vision-language-model.git
+git clone https://github.com/MaxLSB/paligemma2-vlm.git
 ```
 ```bash
 pip install -r requirements.txt
