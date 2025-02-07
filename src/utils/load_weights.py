@@ -12,7 +12,7 @@ from paligemma.config_models import PaliGemmaConfig
 ################################### Load Hugging Face weights ###################################
 
 
-def load_hf_model(model_path: str, model_type: str, device: str):
+def load_weights(model_path: str, model_type: str, device: str):
     # Load the tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="right")
     assert tokenizer.padding_side == "right"
