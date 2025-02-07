@@ -8,11 +8,9 @@ _**Note:** Some parts of the code are inspired by Google's and HF's implementati
 
 # Architecture
 
-<div style="display: flex; justify-content: center; gap: 20px;">
-  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" width="437" />
-  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" width="400" />
+<div style="display: flex; justify-content: center; width: 100%; gap: 20px;">
+  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" style="width: 500px; display: block;" />
 </div>
-
 
 <br>
 
@@ -35,7 +33,13 @@ This Multimodal model is composed of three main components:
 
 - A projector, which is a linear layer that projects the SigLIP's output tokens to the same dimensions as Gemma-2B's vocab tokens, such that they can be concatenated.
 
-The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img</sub> tokens. The text is converted into N<sub>txt</sub> tokens using the Gemma's Sentence Piece tokenizer and embedded with Gemma's vocabulary embedding layer. The image tokens are then projected with the linear layer. Then the sequence of image tokens and text tokens are concatenated and fed into the Gemma-2B decoder as shown in the figure above.
+The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img</sub> tokens. The text is converted into N<sub>txt</sub> tokens using the Gemma's Sentence Piece tokenizer and embedded with Gemma's vocabulary embedding layer. The image tokens are then projected with the linear layer. Then the sequence of image tokens and text tokens are concatenated and fed into the Gemma-2B decoder as shown here:
+
+<div style="display: flex; justify-content: center; width: 100%; gap: 20px;">
+  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" style="width: 500px;" />
+</div>
+
+<br>
 
 In this implementation, the images are always resized to **224x224** pixels (we work with the 224 version of the model), corresponding to 256 tokens which are always placed in the front. The BOS token then marks the start of text tokens and a `\u` is used as a separator token. But this separator is tokenized separatly to avoid it bering merged with with the end of the prefix or the beginning of the suffix. This model uses a full unmasked attention on the input (image + prefix) and the vanilla auto-regressive mask for the output (suffix).
 
@@ -57,7 +61,7 @@ In this implementation, the images are always resized to **224x224** pixels (we 
 First clone the repository and install the requirements:
 
 ```bash
-git clone https://github.com/MaxLSB/paligemma2-vlm.git
+git clone https://github.com/MaxLSB/mini-paligemma2.git
 ```
 ```bash
 pip install -r requirements.txt
