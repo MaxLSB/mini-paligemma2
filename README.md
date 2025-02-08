@@ -57,7 +57,7 @@ In this implementation, the images are always resized to **224x224** pixels (we 
 First clone the repository and install the requirements:
 
 ```bash
-git clone https://github.com/MaxLSB/vision-language-model.git
+git clone https://github.com/MaxLSB/mini-paligemma2.git
 ```
 ```bash
 pip install -r requirements.txt
