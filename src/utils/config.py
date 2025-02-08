@@ -19,7 +19,7 @@ def get_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/paligemma-3b-mix-224",
+        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/mini-paligemma2/paligemma-3b-mix-224",
         # required=True,
         help="Path to the model directory.",
     )
@@ -40,7 +40,7 @@ def get_args():
     parser.add_argument(
         "--image_file_path",
         type=str,
-        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/vision-language-model/images/tiger.jpg",
+        default="C:/Users/mlasb/Desktop/Travail 2024-2025/Projets/vlm/mini-paligemma2/images/tiger.jpg",
         # required=True,
         help="Path to the input image file.",
     )

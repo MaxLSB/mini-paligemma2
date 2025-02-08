@@ -62,7 +62,7 @@ def display_detection(decoded, image_file_path):
 
     cv2.imshow("image", image)
     cv2.waitKey(0)  # Wait for any key to close the window
-    return image
+    cv2.destroyAllWindows()
 
 
 # test = "<loc0195><loc0015><loc0971><loc1023> tiger; <loc0289><loc0015><loc0971><loc0900> hihi"

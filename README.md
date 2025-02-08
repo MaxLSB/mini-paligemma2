@@ -1,4 +1,4 @@
-# PaliGemma 2 & PaliGemma VLMs Implementation from Scratch
+# PaliGemma & PaliGemma 2 VLMs Implementation from Scratch
 
 _(Work in Progress...)_
 
@@ -8,9 +8,11 @@ _**Note:** Some parts of the code are inspired by Google's and HF's implementati
 
 # Architecture
 
-<div align="center">
-  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" width="500" />
+<div style="display: flex; justify-content: center; gap: 20px;">
+  <img src="media/paligemma2.png" alt="PaliGemma 2 Architecture" width="437" />
+  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" width="400" />
 </div>
+
 
 <br>
 
@@ -33,13 +35,7 @@ This Multimodal model is composed of three main components:
 
 - A projector, which is a linear layer that projects the SigLIP's output tokens to the same dimensions as Gemma-2B's vocab tokens, such that they can be concatenated.
 
-The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img</sub> tokens. The text is converted into N<sub>txt</sub> tokens using the Gemma's Sentence Piece tokenizer and embedded with Gemma's vocabulary embedding layer. The image tokens are then projected with the linear layer. Then the sequence of image tokens and text tokens are concatenated and fed into the Gemma-2B decoder as shown here:
-
-<div align="center">
-  <img src="media/prefix-lm-masking.png" alt="PaliGemma prefix Masking" width="500" />
-</div>
-
-<br>
+The image is fed into the SigLIP encoder, which outputs a sequence of N<sub>img</sub> tokens. The text is converted into N<sub>txt</sub> tokens using the Gemma's Sentence Piece tokenizer and embedded with Gemma's vocabulary embedding layer. The image tokens are then projected with the linear layer. Then the sequence of image tokens and text tokens are concatenated and fed into the Gemma-2B decoder as shown in the figure above.
 
 In this implementation, the images are always resized to **224x224** pixels (we work with the 224 version of the model), corresponding to 256 tokens which are always placed in the front. The BOS token then marks the start of text tokens and a `\u` is used as a separator token. But this separator is tokenized separatly to avoid it bering merged with with the end of the prefix or the beginning of the suffix. This model uses a full unmasked attention on the input (image + prefix) and the vanilla auto-regressive mask for the output (suffix).
 
@@ -61,7 +57,7 @@ In this implementation, the images are always resized to **224x224** pixels (we 
 First clone the repository and install the requirements:
 
 ```bash
-git clone https://github.com/MaxLSB/mini-paligemma2.git
+git clone https://github.com/MaxLSB/vision-language-model.git
 ```
 ```bash
 pip install -r requirements.txt
@@ -71,6 +67,8 @@ Then, download the weights from HF (see [Downloading Weights](#downloading-weigh
 _In this implementation the name of instances and variables of the layers match the ones in the `model.safetensors.index.json` file, such that we can load the weights properly._
 
 Finally, run `src/inference.py` file and pass the desired arguments (see [Inference Settings](#inference-settings)).
+
+You can then interact with the model by typing a prompt and pressing Enter. THe model will generate a response based only on the current prompt and the image.
 
 
 ## Downloading Weights
@@ -102,11 +100,25 @@ This isn't truly a conversational model, but it excels at several tasks—mainly
 - Object detection (prompt: 'Detect \<entity\>')
 - Segmentation (prompt: 'Segment \<entity\>')
 
+**Example of a caption prompt with PaliGemma-3B-mix-224:**
+
+```
+-------------------------------------------------------
+> Input: Caption
+> Output: In this image we can see a tiger on the ground. In the background there is grass.
+> Speed: 10.03 tokens/sec
+-------------------------------------------------------
+```
+
+
 **Example of a detection prompt with PaliGemma-3B-mix-224:**
 
 ```
+-------------------------------------------------------
 > Input: Detect tiger
-> Output: <loc0190><loc0022><loc0980><loc1023> tiger.
+> Output: <loc0190><loc0022><loc0980><loc1023> tiger
+> Speed: 6.66 tokens/sec
+-------------------------------------------------------
 ```
 
 _I implemented a `--detection` setting which allows you to display the detection boxes on the input image._
@@ -122,7 +134,6 @@ _I implemented a `--detection` setting which allows you to display the detection
 |--------------------------|-------|------------------------------------|-------------|
 | `--model_type`           | str   | `"paligemma"`                      | Model type (choices: `"paligemma"`, `"paligemma2"`). |
 | `--model_path`           | str   | `"/model/path/paligemma-3b-mix-224"` | Path to the model directory. |
-| `--prompt`               | str   | `"Detect tiger"`                   | Prompt text given to the model. |
 | `--detection`            | bool  | `True`                             | Enable object detection on the image (requires a `Detect <entity>` prompt with the fine-tuned model). |
 | `--image_file_path`      | str   | `"your/image/tiger.jpg"`           | Path to the input image file. |
 | `--max_tokens_to_generate` | int  | `100`                             | Maximum number of tokens to generate. |
